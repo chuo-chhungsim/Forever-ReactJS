@@ -1,0 +1,143 @@
+import { useContext, useEffect, useState } from "react";
+import { ShopContext } from "../context/ShopContext";
+import { assets } from "../assets/frontend_assets/assets";
+import Title from "../components/Title";
+import ProductItem from "../components/ProductItem";
+
+const Collection = () => {
+  const { products, search, showSearch } = useContext(ShopContext);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterProducts, setFilterProducts] = useState([]);
+  const [category, setCategory] = useState([]);
+  const [subCategory, setSubCategory] = useState([]);
+  const [sortType, setSortType] = useState('relevant');
+
+  // Toggle Category Filter
+  const toggleCategory = (e) => {
+    if (category.includes(e.target.value)) {
+      setCategory(prev => prev.filter(item => item !== e.target.value));
+    } else {
+      setCategory(prev => [...prev, e.target.value]);
+    }
+  };
+
+  // Toggle SubCategory Filter
+  const toggleSubCategory = (e) => {
+    if (subCategory.includes(e.target.value)) {
+      setSubCategory(prev => prev.filter(item => item !== e.target.value));
+    } else {
+      setSubCategory(prev => [...prev, e.target.value]);
+    }
+  };
+
+  // Filter Products
+  const applyFilter = () => {
+    let productCopy = products.slice();
+    
+    // Search Filter
+    if (showSearch && search) {
+      productCopy = productCopy.filter(item =>
+        item.name.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    // Category Filter
+    if (category.length > 0) {
+      productCopy = productCopy.filter(item => category.includes(item.category));
+    }
+
+    // SubCategory Filter
+    if (subCategory.length > 0) {
+      productCopy = productCopy.filter(item => subCategory.includes(item.subCategory));
+    }
+
+    // Set Filtered Products
+    setFilterProducts(productCopy);
+  };
+
+  // Sort Products
+  const sortProduct = () => {
+    let fpCopy = filterProducts.slice();
+
+    switch (sortType) {
+      case 'low-high':
+        setFilterProducts(fpCopy.sort((a, b) => (a.price - b.price)));
+        break;
+      case 'high-low':
+        setFilterProducts(fpCopy.sort((a, b) => (b.price - a.price)));
+        break;
+      default:
+        applyFilter();
+        break;
+    }
+  };
+
+  // Toggle Filter Visibility
+  const toggleFilter = () => {
+    setShowFilter(prevShowFilter => !prevShowFilter);
+  };
+
+  // Re-apply filters when category, subCategory, search, or showSearch change
+  useEffect(() => {
+    applyFilter();
+  }, [category, subCategory, search, showSearch]);
+
+  // Re-sort products when sortType changes
+  useEffect(() => {
+    sortProduct();
+  }, [sortType]);
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-1 sm:gap-10 pt-10 border-t">
+      {/* Filter Options */}
+      <div className="min-w-60">
+        <p className="my-2 text-xl flex items-center gap-2 cursor-pointer hover:underline hover:transition-all" onClick={toggleFilter}>
+          FILTER
+          <img className={`h-3 sm:hidden ${showFilter ? 'rotate-90' : ''}`} src={assets.dropdown_icon} alt="Toggle Filter" />
+        </p>
+        {/* Category Filter */}
+        <div className={`border border-gray-300 pl-5 py-3 mt-6 ${showFilter ? "" : "hidden"} sm:block`}>
+          <p className="mb-3 text-sm font-medium uppercase">Categories</p>
+          <div className="flex flex-col gap-2 text-sm font-light text-gray-700">
+            {['Men', 'Women', 'Kids'].map(categoryItem => (
+              <p key={categoryItem} className="gap-2 flex">
+                <input type="checkbox" className="w-3" value={categoryItem} onChange={toggleCategory} /> {categoryItem}
+              </p>
+            ))}
+          </div>
+        </div>
+        {/* SubCategory Filter */}
+        <div className={`border border-gray-300 pl-5 py-3 my-5 ${showFilter ? "" : "hidden"} sm:block`}>
+          <p className="mb-3 text-sm font-medium uppercase">Type</p>
+          <div className="flex flex-col gap-2 text-sm font-light text-gray-700">
+            {['Topwear', 'Bottomwear', 'Winterwear'].map(subCategoryItem => (
+              <p key={subCategoryItem} className="gap-2 flex">
+                <input type="checkbox" className="w-3" value={subCategoryItem} onChange={toggleSubCategory} /> {subCategoryItem}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Product Section */}
+      <div className="flex-1">
+        <div className="flex justify-between text-base sm:text-2xl mb-4">
+          <Title text1={'ALL'} text2={'Collection'} />
+          {/* Product Sort */}
+          <select onChange={(e) => setSortType(e.target.value)} className="border border-gray-300 text-sm px-2">
+            <option value="relevant">Sort by: Relevant</option>
+            <option value="low-high">Sort by: Low</option>
+            <option value="high-low">Sort by: High</option>
+          </select>
+        </div>
+        {/* Display Products */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 gap-y-6">
+          {filterProducts.map((item, index) => (
+            <ProductItem key={index} name={item.name} price={item.price} image={item.image} id={item._id} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Collection;
