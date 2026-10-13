@@ -3,31 +3,35 @@
 import { useContext, useEffect, useState } from "react";
 import { useParams } from "react-router-dom"
 import { ShopContext } from "../context/ShopContext";
+import { api } from "../api/client";
 import { assets } from "../assets/frontend_assets/assets";
 import RelativeProduct from "../components/RelativeProduct";
 
 const Product = () => {
   
   const {productId} = useParams();
-  const {products,currency,addToCart} = useContext(ShopContext);
-  const [productData,setProductData] = useState(false);
+  const {currency,addToCart} = useContext(ShopContext);
+  const [productData,setProductData] = useState(null);
+  const [error,setError] = useState(null);
   const [image,setImage] =useState('');
   const [size,setSize] = useState('');
 
-  const fetchProductData = async () => {
-    products.map((item)=>{
-      if(item._id === productId){
-        setProductData(item);
-        setImage(item.image[0])
-        // console.log(item.image)
-        return null;
-      }
-    })
-  }
   useEffect(()=>{
-    fetchProductData()
+    let cancelled = false;
+    setProductData(null);
+    setError(null);
+    setSize('');
+    api.product(productId)
+      .then((item)=>{
+        if(cancelled) return;
+        setProductData(item);
+        setImage(item.images[0]);
+      })
+      .catch((e)=>!cancelled && setError(e));
+    return ()=>{ cancelled = true };
   },[productId])
 
+  if (error) return <p className="text-center text-red-500 py-20">{error.message}</p>
 
   return productData ?  (
     <div className="border-t pt-10 transition-opacity ease-in duration-500 opacity-100">
@@ -37,7 +41,7 @@ const Product = () => {
         <div className="flex-1 flex flex-col-reverse gap-3 sm:flex-row">
           <div className="flex sm:flex-col overflow-x-auto sm:overflow-y-scroll justify-between sm:justify-normal sm:w-[18.7%] w-full">
             {
-              productData.image.map((item,index)=>(
+              productData.images.map((item,index)=>(
                 <img onClick={()=>setImage(item)} src={item} key={index} className="w[-24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer " alt="" />
               ))
             }
@@ -69,7 +73,7 @@ const Product = () => {
               ))}
             </div>  
           </div>
-          <button onClick={()=>addToCart(productData._id ,size)} className="bg-black text-white px-8 py-3 text-sm active:bg-gray-700">Add to Cart</button>
+          <button onClick={()=>addToCart(productData.id ,size)} className="bg-black text-white px-8 py-3 text-sm active:bg-gray-700">Add to Cart</button>
           <hr className="mt-8 sm:w-4/5"/>
           <div className="text-sm text-gray-500 mt-5 flex flex-col gap-1">
               <p>100% Original Products.</p>
@@ -91,7 +95,7 @@ const Product = () => {
           <p>Experience unmatched comfort and style with our Premium Cotton T-Shirt, crafted from 100% high-quality cotton. Designed for a perfect fit, this t-shirt offers breathability and durability, making it ideal for everyday wear.Whether you're dressing up for a casual day out or lounging at home, this t-shirt provides the ultimate combination of softness and style. Don't miss out on adding this staple piece to your wardrobe!</p>
         </div>
         {/* Display Relative Products */}
-        <RelativeProduct category={productData.category} subCategory={productData.subCategory}/>
+        <RelativeProduct productId={productData.id}/>
       </div>
 
 

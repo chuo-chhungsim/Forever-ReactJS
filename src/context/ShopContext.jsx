@@ -1,98 +1,120 @@
 //ShopContext
-import { createContext, useEffect, useState }  from "react";
-import {products} from '../assets/frontend_assets/assets'
+import { createContext, useCallback, useEffect, useState } from "react";
 import { toast } from 'react-toastify';
 import { useNavigate } from "react-router-dom";
+import { api, session } from "../api/client";
 
 export const ShopContext = createContext();
 
-const ShopContextProvider = (props) =>{
+const EMPTY_CART = { items: [], itemCount: 0, subtotal: 0, deliveryFee: 0, total: 0 };
 
-   const currency ='$';
-   const delivery_fee = 10;
-   const [search,setSearch] = useState('')
-   const [showSearch,setShowSearch] = useState(false);
-   const [cartItems,setCartItems] = useState({});
-   const navigate = useNavigate()  ;
+const ShopContextProvider = (props) => {
+   const currency = '$';
+   const navigate = useNavigate();
+   const [search, setSearch] = useState('');
+   const [showSearch, setShowSearch] = useState(false);
+   const [user, setUser] = useState(null);
+   const [authReady, setAuthReady] = useState(!session.hasSession());
+   const [cart, setCart] = useState(EMPTY_CART);
 
+   const loadCart = useCallback(async () => {
+      try {
+         setCart(await api.cart());
+      } catch (e) {
+         toast.error(e.message);
+      }
+   }, []);
 
-   const addToCart = async (itemId,size) => {
+   // Restore a saved session on page load.
+   useEffect(() => {
+      session.onExpired(() => {
+         setUser(null);
+         setCart(EMPTY_CART);
+         toast.info('Your session expired, please log in again');
+      });
+      session.onAdminForbidden(async () => {
+         // The server says this account is not an admin (anymore): refresh who we are and leave quietly.
+         try { setUser(await api.me()); } catch { /* keep the current user */ }
+         navigate('/', { replace: true });
+      });
+      if (!session.hasSession()) return;
+      (async () => {
+         try {
+            setUser(await api.me());
+            await loadCart();
+         } catch {
+            // network error or invalid session: stay logged out
+         } finally {
+            setAuthReady(true);
+         }
+      })();
+   }, [loadCart, navigate]);
 
-      if(!size){
-         toast.error('Please Select Product Size')
+   // Called with the AuthResponse of login / verify-email.
+   const startSession = async (res) => {
+      session.set(res);
+      setUser(res.user);
+      await loadCart();
+   };
+
+   const logout = async () => {
+      try {
+         const stored = JSON.parse(localStorage.getItem('forever.tokens'));
+         if (stored?.refreshToken) await api.logout(stored.refreshToken);
+      } catch { /* the token is dropped locally either way */ }
+      session.clear();
+      setUser(null);
+      setCart(EMPTY_CART);
+      navigate('/');
+   };
+
+   const requireLogin = (message = 'Please log in to continue') => {
+      if (user) return true;
+      toast.info(message);
+      navigate('/login', { state: { from: window.location.pathname } });
+      return false;
+   };
+
+   const addToCart = async (productId, size) => {
+      if (!size) {
+         toast.error('Please Select Product Size');
          return;
       }
-
-
-      let cartData = structuredClone(cartItems);
-      if(cartData[itemId]) {
-         if(cartData[itemId][size]){
-            cartData[itemId][size] +=1;
-         }
-         else{
-            cartData[itemId][size] = 1;
-         }
+      if (!requireLogin('Please log in to add items to your cart')) return;
+      try {
+         setCart(await api.addToCart(productId, size));
+         toast.success('Added to cart');
+      } catch (e) {
+         toast.error(e.message);
       }
-      else{
-         cartData[itemId] = {};
-         cartData[itemId][size] = 1;
+   };
+
+   const updateQuantity = async (productId, size, quantity) => {
+      try {
+         setCart(await api.setCartQuantity(productId, size, quantity));
+      } catch (e) {
+         toast.error(e.message);
       }
-      setCartItems(cartData);
-   }
+   };
 
-   const getCartCount = () =>{
-      let totalCount = 0;
-      for(const items in cartItems){
-         for(const item in cartItems[items]){
-            try {
-               if (cartItems[items][item]>0) {
-                  totalCount += cartItems[items][item]
-               }
-            } catch (error) {
-               console.log(totalCount)
-            }
-         }
-      }
-      return totalCount;
-   }
+   const getCartCount = () => cart.itemCount;
+   const getCartAmount = () => cart.subtotal;
 
-   const updateQuantity = async (itemId,size,quantity) => {
-      let cartData = structuredClone(cartItems)
-
-      cartData[itemId][size] = quantity;
-
-      setCartItems(cartData);
-   }
-
-   const getCartAmount = () => {
-      let totalAmount = 0;
-      for(const items in cartItems){
-         let itemInfo = products.find((product)=> product._id === items);
-         for(const item in cartItems[items]){
-            try {
-               if (cartItems[items][item]>0) {
-                  totalAmount += itemInfo.price * cartItems[items][item]
-               }
-            } catch (error) {
-               console.log(totalAmount)
-            }
-         }
-      }
-      return totalAmount;
-   }
-
-   useEffect(()=>{
-      console.log(cartItems)
-   },[cartItems])
    const value = {
-      products,
       currency,
-      delivery_fee,
+      delivery_fee: cart.deliveryFee,
       search,
       setSearch,
       showSearch,
       setShowSearch,
-      cartItems,
+      user,
+      authReady,
+      startSession,
+      logout,
+      requireLogin,
+      cart,
+      setCart,
+      loadCart,
       addToCart,
       getCartCount,
       updateQuantity,
@@ -100,11 +122,9 @@ const ShopContextProvider = (props) =>{
       navigate
    }
    return (
-         <ShopContext.Provider value={value}>
-            {props.children}
-         </ShopContext.Provider>
-      )
-      
+      <ShopContext.Provider value={value}>
+         {props.children}
+      </ShopContext.Provider>
+   )
 }
 export default ShopContextProvider;
-

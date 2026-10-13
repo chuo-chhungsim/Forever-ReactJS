@@ -6,7 +6,7 @@ import { ShopContext } from '../context/ShopContext';
 const Navbar = () => {
    const [visible, setVisible] = useState(false);
 
-   const {setShowSearch,showSearch,getCartCount} = useContext(ShopContext);
+   const {setShowSearch,showSearch,getCartCount,user,logout,navigate} = useContext(ShopContext);
 
 
    return (
@@ -33,14 +33,24 @@ const Navbar = () => {
             <div className="flex items-center gap-6">
                <img onClick={()=>setShowSearch(!showSearch)} src={assets.search_icon} alt="Search" className='w-5 cursor-pointer' />
                <div className="group relative">
-                  <Link to={'/login'}><img src={assets.profile_icon} alt="Profile" className='w-5 cursor-pointer'/></Link>
-                  <div className='group-hover:block hidden absolute dropdown-menu right-0 pt-4'>
-                     <div className='flex flex-col gap-2 w-36 py-3 px-5 bg-slate-100 text-gray-500 rounded'>
-                        <p className='cursor-pointer hover:text-black'>My Profile</p>
-                        <p className='cursor-pointer hover:text-black'>Order</p>
-                        <p className='cursor-pointer hover:text-black'>Logout</p>
+                  {user ? (
+                     <img src={assets.profile_icon} alt="Profile" className='w-5 cursor-pointer'/>
+                  ) : (
+                     <Link to={'/login'}><img src={assets.profile_icon} alt="Profile" className='w-5 cursor-pointer'/></Link>
+                  )}
+                  {user && (
+                     <div className='group-hover:block hidden absolute dropdown-menu right-0 pt-4'>
+                        <div className='flex flex-col gap-2 w-40 py-3 px-5 bg-slate-100 text-gray-500 rounded'>
+                           <p className='text-gray-800 font-medium truncate'>{user.name}</p>
+                           <p onClick={() => navigate('/order')} className='cursor-pointer hover:text-black'>Orders</p>
+                           <p onClick={logout} className='cursor-pointer hover:text-black'>Logout</p>
+                           {/* Only admins get this button; everyone else never sees that an admin panel exists. */}
+                           {user.role === 'ADMIN' && (
+                              <button onClick={() => navigate('/admin')} className='mt-1 bg-black text-white text-xs py-2 px-3 rounded'>Admin panel</button>
+                           )}
+                        </div>
                      </div>
-                  </div>
+                  )}
                </div>
                <Link to='/cart' className='relative'>
                   <img src={assets.cart_icon} alt="Cart" className='w-5 min-w-5' />
@@ -67,6 +77,11 @@ const Navbar = () => {
                      {item.charAt(0).toUpperCase() + item.slice(1)}
                   </NavLink>
                ))}
+               {user?.role === 'ADMIN' && (
+                  <NavLink onClick={() => setVisible(false)} className='py-2 pl-6 border font-medium text-black' to='/admin'>
+                     Admin panel
+                  </NavLink>
+               )}
             </div>
          </div>
       </>

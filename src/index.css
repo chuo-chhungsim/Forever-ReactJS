@@ -9,7 +9,13 @@ a.active hr{
 }
 
 *{
-   font-family: OUtfit;
+   font-family: Outfit;
+}
+:root{
+   color-scheme: light;
+}
+body{
+   background-color: #fff;
 }
 .prata-regular {
    font-family: "Prata", serif;
